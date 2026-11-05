@@ -1,0 +1,47 @@
+modLoader = "javafml"
+loaderVersion = "[36,)"
+#issueTrackerURL = ""
+license = "LGPL-v3"
+
+[[mods]]
+modId = "modernemb"
+version = "${version}"
+displayName = "ModernEmb"
+authors = "Kasualix"
+#credits = ""
+description = '''
+A Modern UI remake of the Embeddium configuration screens.
+
+Every option keeps its original config model and bindings, so switches, sliders and lists behave exactly like the mod they belong to. Embeddium pages added by other mods are grouped by their source mod, and Oculus shader settings can be edited from the same screen.
+
+Client-side only. Requires Modern UI, NarutoUI and Embeddium; Configured and Oculus support is optional.
+'''
+#logoFile = ""
+
+[[dependencies.modernemb]]
+modId = "modernui"
+mandatory = true
+versionRange = "[3.12.0,)"
+ordering = "AFTER"
+side = "CLIENT"
+
+[[dependencies.modernemb]]
+modId = "narutoui"
+mandatory = true
+versionRange = "[1.20.1-1.7.0,)"
+ordering = "AFTER"
+side = "CLIENT"
+
+[[dependencies.modernemb]]
+modId = "embeddium"
+mandatory = true
+versionRange = "[0.3.31,)"
+ordering = "AFTER"
+side = "CLIENT"
+
+[[dependencies.modernemb]]
+modId = "oculus"
+mandatory = false
+versionRange = "[1.8.0,)"
+ordering = "AFTER"
+side = "CLIENT"
