@@ -13,12 +13,14 @@ import me.jellysquid.mods.sodium.client.gui.options.OptionFlag;
 import me.jellysquid.mods.sodium.client.gui.options.OptionGroup;
 import me.jellysquid.mods.sodium.client.gui.options.OptionPage;
 import me.jellysquid.mods.sodium.client.gui.options.storage.OptionStorage;
+import me.kall.modernemb.config.ModernEmbSettings;
 import me.kall.narutoui.mui.layout.MuiControls;
 import me.kall.narutoui.mui.screen.MuiConfigFragment;
 import me.kall.narutoui.mui.screen.MuiDialog;
 import me.kall.narutoui.mui.screen.MuiScreenHost;
 import me.kall.narutoui.mui.theme.MuiTheme;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -39,6 +41,8 @@ final class EmbeddiumState {
     private static final Logger LOGGER = LogManager.getLogger("ModernEmb/Embeddium");
 
     private final List<Option<?>> options;
+    private final List<OptionPage> pages;
+    private final @Nullable Screen parent;
     private final @Nullable ShaderState shaderState;
 
     private @Nullable MuiScreenHost host;
@@ -49,7 +53,9 @@ final class EmbeddiumState {
     private boolean closeDialogOpen;
     private boolean applying;
 
-    EmbeddiumState(@NotNull List<OptionPage> pages, @Nullable ShaderState shaderState) {
+    EmbeddiumState(@NotNull List<OptionPage> pages, @Nullable ShaderState shaderState, @Nullable Screen parent) {
+        this.pages = List.copyOf(pages);
+        this.parent = parent;
         this.shaderState = shaderState;
         List<Option<?>> all = new ArrayList<>();
         for (OptionPage page : pages) {
@@ -79,6 +85,20 @@ final class EmbeddiumState {
      */
     void onDestroyed() {
         this.host = null;
+    }
+
+    /**
+     * Shows an overlay (such as the NarutoUI color picker) above the whole shell.
+     *
+     * @param overlay the overlay view
+     */
+    void showOverlay(@NotNull View overlay) {
+        MuiScreenHost current = this.host;
+        if (current == null) {
+            LOGGER.warn("Cannot show an overlay before the Modern UI host is attached");
+            return;
+        }
+        current.showOverlay(overlay);
     }
 
     /**
@@ -286,6 +306,7 @@ final class EmbeddiumState {
     private void applyOnRenderThread(boolean closeAfter) {
         boolean restart = false;
         boolean shaderChanged = this.shaderState != null && this.shaderState.hasChanges();
+        boolean appearanceChanged = false;
         Throwable failure = null;
 
         try {
@@ -300,6 +321,9 @@ final class EmbeddiumState {
                 option.applyChanges();
                 flags.addAll(option.getFlags());
                 dirtyStorages.add(option.getStorage());
+                if (option.getStorage() == ModernEmbSettings.storage()) {
+                    appearanceChanged = true;
+                }
             }
 
             Minecraft client = Minecraft.getInstance();
@@ -336,6 +360,22 @@ final class EmbeddiumState {
         }
 
         Throwable error = failure;
+
+        // Theme, navigation and shimmer settings are baked into the shell when it is created.
+        // Rebuild it on the render thread with the freshly applied config so Apply is immediate
+        // instead of only taking effect the next time the screen opens.
+        if (error == null && appearanceChanged && !closeAfter) {
+            try {
+                Screen replacement = EmbeddiumMuiScreen.create(this.parent, this.pages, true);
+                if (replacement != null) {
+                    Minecraft.getInstance().setScreen(replacement);
+                    return;
+                }
+            } catch (Throwable throwable) {
+                LOGGER.error("Failed to rebuild the Modern UI screen after applying appearance options", throwable);
+            }
+        }
+
         boolean showRestart = restart;
         boolean reloadPages = shaderChanged;
         MuiModApi.postToUiThread(() -> {

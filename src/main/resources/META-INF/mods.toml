@@ -14,6 +14,8 @@ A Modern UI remake of the Embeddium configuration screens.
 
 Every option keeps its original config model and bindings, so switches, sliders and lists behave exactly like the mod they belong to. Embeddium pages added by other mods are grouped by their source mod, and Oculus shader settings can be edited from the same screen.
 
+ModernEmb also adds its own appearance page through Embeddium's OptionPage API: color schemes, navigation-bar styles and NarutoUI shimmer effects, including a two-color shimmer band interpolated in OKLab.
+
 Client-side only. Requires Modern UI, NarutoUI and Embeddium; Configured and Oculus support is optional.
 '''
 #logoFile = ""
@@ -28,7 +30,7 @@ side = "CLIENT"
 [[dependencies.modernemb]]
 modId = "narutoui"
 mandatory = true
-versionRange = "[1.20.1-1.7.0,)"
+versionRange = "[1.20.1-1.7.3,)"
 ordering = "AFTER"
 side = "CLIENT"
 
