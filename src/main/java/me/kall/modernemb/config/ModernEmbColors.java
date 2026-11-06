@@ -1,5 +1,6 @@
 package me.kall.modernemb.config;
 
+import me.kall.narutoui.mui.color.MuiThemePalette;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -90,12 +91,12 @@ public final class ModernEmbColors {
      * @param surface base surface color
      * @return the derived palette
      */
-    public static @NotNull ThemePalette customPalette(int accent, int surface) {
+    public static @NotNull MuiThemePalette customPalette(int accent, int surface) {
         int primary = opaque(accent);
         int base = opaque(surface);
         int onSurface = readableOn(base);
 
-        return new ThemePalette(
+        return new MuiThemePalette(
                 primary,
                 readableOn(primary),
                 base,

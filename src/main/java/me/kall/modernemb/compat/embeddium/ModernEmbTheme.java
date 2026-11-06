@@ -1,12 +1,10 @@
 package me.kall.modernemb.compat.embeddium;
 
 import icyllis.modernui.core.Context;
-import me.kall.modernemb.config.ModernEmbColors;
 import me.kall.modernemb.config.ModernEmbConfig;
 import me.kall.modernemb.config.ModernEmbSettings;
-import me.kall.modernemb.config.ThemePalette;
-import me.kall.modernemb.config.ThemePreset;
 import me.kall.narutoui.mui.background.MuiBackground;
+import me.kall.narutoui.mui.color.MuiThemePalette;
 import me.kall.narutoui.mui.theme.MuiTheme;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -14,9 +12,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Resolves the NarutoUI theme and background from ModernEmb's appearance config.
  * <p>
- * {@link ThemePreset#AUTO} deliberately returns {@code null}, which tells NarutoUI to resolve the
- * host Modern UI theme. Every other preset produces a fixed theme; the custom preset derives its
- * remaining tokens from the chosen accent and surface so contrast stays readable.
+ * {@code AUTO} deliberately returns {@code null}, which tells NarutoUI to resolve the host Modern UI
+ * theme. Every other scheme produces a fixed theme; the custom scheme derives its remaining tokens
+ * from the chosen accent and surface so contrast stays readable.
  */
 final class ModernEmbTheme {
     /** Alpha of the colored backdrop used by non-auto themes. */
@@ -31,25 +29,12 @@ final class ModernEmbTheme {
      * @return the theme override, or {@code null} to follow Modern UI
      */
     static @Nullable MuiTheme resolve(@NotNull ModernEmbConfig config) {
-        ThemePreset preset = config.themePreset();
-        if (preset.auto()) {
+        if (config.themeAuto()) {
             return null;
         }
 
-        ThemePalette palette = palette(config);
-        return new MuiTheme(
-                palette.primary(),
-                palette.onPrimary(),
-                palette.surface(),
-                palette.surfaceLow(),
-                palette.surfaceHigh(),
-                palette.onSurface(),
-                palette.onSurfaceVariant(),
-                palette.outline(),
-                palette.error(),
-                config.cornerRadius(),
-                config.contentSpacing()
-        );
+        MuiThemePalette palette = config.activeThemePalette();
+        return palette.toTheme(config.cornerRadius(), config.contentSpacing());
     }
 
     /**
@@ -74,25 +59,11 @@ final class ModernEmbTheme {
      * @return the background provider
      */
     static @NotNull MuiBackground background(@NotNull ModernEmbConfig config) {
-        if (config.themePreset().auto()) {
+        if (config.themeAuto()) {
             return MuiBackground.transparent();
         }
 
-        ThemePalette palette = palette(config);
+        MuiThemePalette palette = config.activeThemePalette();
         return MuiBackground.color((BACKDROP_ALPHA << 24) | (palette.surface() & 0xFFFFFF));
-    }
-
-    /**
-     * Resolves the palette for a non-auto preset.
-     *
-     * @param config appearance config
-     * @return a fixed palette, or one derived from the custom accent and surface
-     */
-    private static @NotNull ThemePalette palette(@NotNull ModernEmbConfig config) {
-        ThemePreset preset = config.themePreset();
-        if (preset.custom() || preset.palette() == null) {
-            return ModernEmbColors.customPalette(config.accentColor(), config.surfaceColor());
-        }
-        return preset.palette();
     }
 }

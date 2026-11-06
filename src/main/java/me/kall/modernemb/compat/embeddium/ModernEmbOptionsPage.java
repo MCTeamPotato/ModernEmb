@@ -13,8 +13,8 @@ import me.kall.modernemb.config.GlowPalette;
 import me.kall.modernemb.config.ModernEmbConfig;
 import me.kall.modernemb.config.ModernEmbSettings;
 import me.kall.modernemb.config.NavigationStyle;
-import me.kall.modernemb.config.ThemePreset;
 import me.kall.narutoui.mui.color.MuiColorBand;
+import me.kall.narutoui.mui.color.MuiColorSchemes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.embeddedt.embeddium.client.gui.options.OptionIdentifier;
@@ -59,30 +59,30 @@ public final class ModernEmbOptionsPage {
      * @return the page
      */
     public static @NotNull OptionPage create() {
-        final OptionImpl<ModernEmbConfig, ThemePreset> preset = option("theme_preset", ThemePreset.class,
-                ModernEmbConfig::setThemePreset, ModernEmbConfig::themePreset,
-                control -> new CyclingControl<>(control, ThemePreset.class, names(ThemePreset.class, "modernemb.theme")),
+        final OptionImpl<ModernEmbConfig, String> preset = option("theme_preset", String.class,
+                ModernEmbConfig::setThemeSchemeId, ModernEmbConfig::themeSchemeId,
+                ModernEmbSchemeControl::new,
                 () -> true);
 
         final OptionImpl<ModernEmbConfig, Integer> accent = option("theme_accent", Integer.class,
                 ModernEmbConfig::setAccentColor, ModernEmbConfig::accentColor,
                 ModernEmbColorControl::new,
-                () -> preset.getValue() == ThemePreset.CUSTOM);
+                () -> "CUSTOM".equalsIgnoreCase(preset.getValue()));
 
         final OptionImpl<ModernEmbConfig, Integer> surface = option("theme_surface", Integer.class,
                 ModernEmbConfig::setSurfaceColor, ModernEmbConfig::surfaceColor,
                 ModernEmbColorControl::new,
-                () -> preset.getValue() == ThemePreset.CUSTOM);
+                () -> "CUSTOM".equalsIgnoreCase(preset.getValue()));
 
         final OptionImpl<ModernEmbConfig, Integer> radius = option("theme_corner_radius", Integer.class,
                 ModernEmbConfig::setCornerRadius, ModernEmbConfig::cornerRadius,
                 control -> new SliderControl(control, 0, 28, 2, value -> Component.literal(value + " dp")),
-                () -> preset.getValue() != ThemePreset.AUTO);
+                () -> !isAutoScheme(preset.getValue()));
 
         final OptionImpl<ModernEmbConfig, Integer> spacing = option("theme_spacing", Integer.class,
                 ModernEmbConfig::setContentSpacing, ModernEmbConfig::contentSpacing,
                 control -> new SliderControl(control, 8, 40, 4, value -> Component.literal(value + " dp")),
-                () -> preset.getValue() != ThemePreset.AUTO);
+                () -> !isAutoScheme(preset.getValue()));
 
         final OptionImpl<ModernEmbConfig, NavigationStyle> navigation = option("navigation_style", NavigationStyle.class,
                 ModernEmbConfig::setNavigationStyle, ModernEmbConfig::navigationStyle,
@@ -195,6 +195,11 @@ public final class ModernEmbOptionsPage {
         String key = PREFIX + "group." + id.getPath();
         String translated = Component.translatable(key).getString();
         return translated.equals(key) ? null : translated;
+    }
+
+    private static boolean isAutoScheme(@Nullable String id) {
+        return id == null || id.isBlank() || "AUTO".equalsIgnoreCase(id)
+                || (!"CUSTOM".equalsIgnoreCase(id) && MuiColorSchemes.byId(id) == null);
     }
 
     private static <T> OptionImpl<ModernEmbConfig, T> option(String path,

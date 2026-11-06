@@ -1,9 +1,13 @@
 package me.kall.modernemb.config;
 
 import me.kall.narutoui.mui.color.MuiColorBand;
+import me.kall.narutoui.mui.color.MuiColorScheme;
+import me.kall.narutoui.mui.color.MuiColorSchemes;
 import me.kall.narutoui.mui.color.MuiShimmerRamps;
+import me.kall.narutoui.mui.color.MuiThemePalette;
 import net.minecraftforge.common.ForgeConfigSpec;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.function.Predicate;
 
@@ -35,7 +39,7 @@ public final class ModernEmbConfig {
     /** The registered client spec. */
     public static final ForgeConfigSpec SPEC;
 
-    private static final ForgeConfigSpec.EnumValue<ThemePreset> THEME_PRESET;
+    private static final ForgeConfigSpec.ConfigValue<String> THEME_SCHEME;
     private static final ForgeConfigSpec.ConfigValue<String> THEME_ACCENT;
     private static final ForgeConfigSpec.ConfigValue<String> THEME_SURFACE;
     private static final ForgeConfigSpec.IntValue THEME_RADIUS;
@@ -60,9 +64,10 @@ public final class ModernEmbConfig {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
         builder.comment("ModernEmb appearance settings. Colors use RRGGBB or AARRGGBB hex.").push("theme");
-        THEME_PRESET = builder
-                .comment("Color scheme: AUTO, NARUTO, JADE, AZURE, SAKURA, GRAPHITE or CUSTOM.")
-                .defineEnum("palette", ThemePreset.AUTO);
+        THEME_SCHEME = builder
+                .comment("AUTO, CUSTOM, or a scheme id registered in NarutoUI.",
+                        "NarutoUI currently registers NARUTO, CLASSIC, JADE, AZURE, SAKURA and GRAPHITE; new schemes appear automatically.")
+                .define("palette", "AUTO", value -> value instanceof String text && !text.isBlank());
         THEME_ACCENT = builder
                 .comment("Accent color used by the CUSTOM scheme, for example FFE0A64A.")
                 .define("accentColor", ModernEmbColors.toColorToken(DEFAULT_ACCENT), COLOR_VALIDATOR);
@@ -93,10 +98,10 @@ public final class ModernEmbConfig {
                         "CUSTOM builds the same kind of ramp from the two configured band colors.")
                 .defineEnum("palette", GlowPalette.THEME);
         GLOW_FIRST = builder
-                .comment("First endpoint of the custom OKLab band, for example FFD24A.")
+                .comment("Core color of the custom light/core/deep band, for example FFD24A.")
                 .define("bandFirst", ModernEmbColors.toColorToken(DEFAULT_GLOW_FIRST), COLOR_VALIDATOR);
         GLOW_SECOND = builder
-                .comment("Second endpoint of the custom OKLab band, for example FF5252.")
+                .comment("Deep auxiliary color of the custom light/core/deep band, for example FF5252.")
                 .define("bandSecond", ModernEmbColors.toColorToken(DEFAULT_GLOW_SECOND), COLOR_VALIDATOR);
         GLOW_SPEED = builder
                 .comment("Shimmer wave speed in percent.")
@@ -157,23 +162,20 @@ public final class ModernEmbConfig {
     }
 
     /**
-     * Resolves the palette of the active color scheme.
+     * Resolves the UI palette of the active color scheme.
      * <p>
-     * {@link ThemePreset#AUTO} follows Modern UI, whose theme tokens are not available here, so it
-     * falls back to the fixed Naruto palette. {@link ThemePreset#CUSTOM} derives its palette from
-     * the configured accent and surface.
+     * {@code AUTO} follows Modern UI, whose theme tokens are not available here, so it falls back to
+     * the shared Naruto palette. {@code CUSTOM} derives its palette from the configured accent and
+     * surface. Unknown ids also fall back to {@code AUTO}.
      *
      * @return the active palette
      */
-    public @NotNull ThemePalette activeThemePalette() {
-        ThemePreset preset = this.themePreset();
-        if (preset == ThemePreset.CUSTOM) {
+    public @NotNull MuiThemePalette activeThemePalette() {
+        if (this.themeCustom()) {
             return ModernEmbColors.customPalette(this.accentColor(), this.surfaceColor());
         }
-        if (preset.auto() || preset.palette() == null) {
-            return ThemePreset.NARUTO.palette();
-        }
-        return preset.palette();
+        MuiColorScheme scheme = this.themeScheme();
+        return scheme != null ? scheme.theme() : MuiColorSchemes.NARUTO.theme();
     }
 
     /**
@@ -184,14 +186,14 @@ public final class ModernEmbConfig {
      */
     public int @NotNull [] rampFor(@NotNull GlowPalette palette) {
         if (palette == GlowPalette.THEME) {
-            ThemePreset preset = this.themePreset();
+            String id = this.themeSchemeId();
             // Naruto/Auto keep the signature chakra ramp; the other schemes get a rich ramp in
             // their own color family.
-            if (preset == ThemePreset.NARUTO || preset == ThemePreset.AUTO) {
+            if ("NARUTO".equalsIgnoreCase(id) || this.themeAuto()) {
                 return GlowPalette.CHAKRA.ramp(0, 0);
             }
-            ThemePalette theme = this.activeThemePalette();
-            if (preset == ThemePreset.CUSTOM) {
+            MuiThemePalette theme = this.activeThemePalette();
+            if (this.themeCustom()) {
                 // The custom palette's outline is a neutral contrast token, not a deep accent.
                 return MuiShimmerRamps.rich(theme.primary());
             }
@@ -207,13 +209,44 @@ public final class ModernEmbConfig {
         return this.rampFor(this.glowPalette());
     }
 
-    public ThemePreset themePreset() {
-        ThemePreset value = THEME_PRESET.get();
-        return value == null ? ThemePreset.AUTO : value;
+    /**
+     * @return the configured scheme id, never blank
+     */
+    public @NotNull String themeSchemeId() {
+        String value = THEME_SCHEME.get();
+        return value == null || value.isBlank() ? "AUTO" : value;
     }
 
-    public void setThemePreset(ThemePreset themePreset) {
-        THEME_PRESET.set(themePreset == null ? ThemePreset.AUTO : themePreset);
+    /**
+     * Replaces the scheme id.
+     *
+     * @param id scheme id, {@code AUTO} or {@code CUSTOM}
+     */
+    public void setThemeSchemeId(@Nullable String id) {
+        THEME_SCHEME.set(id == null || id.isBlank() ? "AUTO" : id);
+    }
+
+    /**
+     * @return whether the screen follows Modern UI's own theme
+     */
+    public boolean themeAuto() {
+        String id = this.themeSchemeId();
+        return "AUTO".equalsIgnoreCase(id)
+                || (!"CUSTOM".equalsIgnoreCase(id) && MuiColorSchemes.byId(id) == null);
+    }
+
+    /**
+     * @return whether the custom accent/surface palette is active
+     */
+    public boolean themeCustom() {
+        return "CUSTOM".equalsIgnoreCase(this.themeSchemeId());
+    }
+
+    /**
+     * @return the selected shared scheme, or {@code null} for Auto/Custom/unknown ids
+     */
+    public @Nullable MuiColorScheme themeScheme() {
+        return MuiColorSchemes.byId(this.themeSchemeId());
     }
 
     public int accentColor() {

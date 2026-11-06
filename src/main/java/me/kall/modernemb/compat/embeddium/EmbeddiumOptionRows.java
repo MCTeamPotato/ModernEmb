@@ -11,10 +11,11 @@ import me.jellysquid.mods.sodium.client.gui.options.control.TickBoxControl;
 import me.kall.modernemb.config.GlowPalette;
 import me.kall.modernemb.config.ModernEmbColors;
 import me.kall.modernemb.config.ModernEmbSettings;
-import me.kall.modernemb.config.ThemePreset;
 import me.kall.modernemb.mixin.SliderControlAccessor;
 import me.kall.narutoui.mui.choice.MuiOption;
 import me.kall.narutoui.mui.color.MuiColorBand;
+import me.kall.narutoui.mui.color.MuiColorScheme;
+import me.kall.narutoui.mui.color.MuiColorSchemes;
 import me.kall.narutoui.mui.color.MuiShimmerRamps;
 import me.kall.narutoui.mui.layout.MuiControls;
 import me.kall.narutoui.mui.overlay.MuiColorPickerOverlay;
@@ -27,9 +28,11 @@ import net.minecraft.network.chat.Component;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.IntConsumer;
 
 /**
@@ -53,7 +56,8 @@ final class EmbeddiumOptionRows {
                 || option.getControl() instanceof SliderControl
                 || option.getControl() instanceof CyclingControl<?>
                 || option.getControl() instanceof ModernEmbColorControl
-                || option.getControl() instanceof ModernEmbColorBandControl;
+                || option.getControl() instanceof ModernEmbColorBandControl
+                || option.getControl() instanceof ModernEmbSchemeControl;
     }
 
     /**
@@ -74,7 +78,9 @@ final class EmbeddiumOptionRows {
             section.shimmerNext();
         }
 
-        if (option.getControl() instanceof ModernEmbColorControl) {
+        if (option.getControl() instanceof ModernEmbSchemeControl) {
+            addScheme(section, state, option, title, description);
+        } else if (option.getControl() instanceof ModernEmbColorControl) {
             addColor(section, state, option, title, description);
         } else if (option.getControl() instanceof ModernEmbColorBandControl) {
             addBand(section, state, option, title, description);
@@ -91,6 +97,49 @@ final class EmbeddiumOptionRows {
         }
 
         section.enabledWhen(option::isAvailable);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void addScheme(@NotNull MuiSettingsSection section,
+                                  @NotNull EmbeddiumState state,
+                                  @NotNull Option<?> option,
+                                  @NotNull String title,
+                                  @NotNull String description) {
+        if (!(option.getValue() instanceof String)) {
+            section.value(title, String.valueOf(option.getValue()));
+            return;
+        }
+
+        Option<String> schemeOption = (Option<String>) option;
+        List<MuiOption<String>> choices = new ArrayList<>(MuiColorSchemes.all().size() + 2);
+
+        choices.add(MuiOption.of("AUTO", label("modernemb.theme.auto"))
+                .preview((context, active) -> ThemeSchemePreview.auto(context)));
+        choices.add(MuiOption.of("CUSTOM", label("modernemb.theme.custom"))
+                .preview((context, active) -> ThemeSchemePreview.custom(context, ModernEmbSettings.config())));
+
+        for (MuiColorScheme scheme : MuiColorSchemes.all()) {
+            choices.add(MuiOption.of(scheme.id(), schemeName(scheme))
+                    .preview((context, active) -> ThemeSchemePreview.create(context, scheme.theme())));
+        }
+
+        section.choiceGridBound(title, description, choices,
+                () -> normalizeScheme(schemeOption.getValue()),
+                value -> {
+                    schemeOption.setValue(value);
+                    state.markEdited();
+                });
+    }
+
+    private static @NotNull String normalizeScheme(@Nullable String id) {
+        if (id == null || id.isBlank()) {
+            return "AUTO";
+        }
+        if ("AUTO".equalsIgnoreCase(id) || "CUSTOM".equalsIgnoreCase(id)) {
+            return id.toUpperCase(Locale.ROOT);
+        }
+        MuiColorScheme scheme = MuiColorSchemes.byId(id);
+        return scheme != null ? scheme.id() : "AUTO";
     }
 
     @SuppressWarnings("unchecked")
@@ -296,11 +345,8 @@ final class EmbeddiumOptionRows {
             Component label = value.ordinal() < names.length ? names[value.ordinal()] : Component.literal(value.name());
             MuiOption<Enum<?>> choice = MuiOption.of(value, label.getString());
 
-            // Palette and color-scheme cards are more useful with artwork than with a name alone.
-            if (value instanceof ThemePreset preset) {
-                choice = choice.preview((context, theme) ->
-                        ThemePresetPreview.create(context, preset));
-            } else if (value instanceof GlowPalette palette) {
+            // Palette cards are more useful with artwork than with a name alone.
+            if (value instanceof GlowPalette palette) {
                 choice = choice.preview((context, theme) -> MuiColorBandPreview.create(context,
                         ModernEmbSettings.config().rampFor(palette),
                         28));
@@ -325,6 +371,11 @@ final class EmbeddiumOptionRows {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static void setEnum(@NotNull Option<?> option, @NotNull Enum<?> value) {
         ((Option) option).setValue(value);
+    }
+
+    private static @NotNull String schemeName(@NotNull MuiColorScheme scheme) {
+        String translated = Component.translatable(scheme.nameKey()).getString();
+        return translated.equals(scheme.nameKey()) ? scheme.id() : translated;
     }
 
     private static @NotNull String label(@NotNull String key) {

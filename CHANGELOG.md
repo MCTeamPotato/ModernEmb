@@ -5,6 +5,7 @@
 - Add navigation styles: sidebar with the ModernEmb mark, classic title rail, or a top navigation bar.
 - Add NarutoUI shimmer settings: palette, speed, strength, density and per-target switches. Option-row shimmer is on by default.
 - Add a two-color custom shimmer band picked with NarutoUI's color picker; the nine-stop ramp is interpolated in OKLab and previewed live.
+- Add a dynamic color-scheme picker backed by NarutoUI's `MuiColorSchemes`; Auto/Custom plus every shared scheme appear automatically, including schemes registered after ModernEmb is built.
 - Add a `Theme colors` glow palette that follows the active color scheme; Naruto/Auto keep the chakra ramp, other schemes get a light/core/deep ramp from their accent and outline.
 - Build custom bands with NarutoUI's `MuiShimmerRamps` light/core/deep generator; the band fields are now labelled Core color / Deep color.
 - Move the OKLab band and two-color band row into NarutoUI's public API and consume NarutoUI from a locally built jar instead of CurseMaven.
