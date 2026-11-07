@@ -1,4 +1,5 @@
 # Unreleased
+- Fix shader-pack option labels that use legacy color codes (for example `§e12 Chunks` and `§aVery Smooth`) rendering the raw `§` code: slider values are re-read every tick, and the bundled NarutoUI dependency now keeps their formatting on every refresh. Bump NarutoUI to 1.8.2, which also adds `§x` hexadecimal colors and dims disabled multi-color labels.
 - Add a ModernEmb appearance page registered through Embeddium's `OptionPage` API, so it uses the same Apply, Revert and persistence flow as every other option.
 - Store appearance settings in Forge's client config (`config/modernemb-client.toml`), with comments and range/color validation.
 - Add color schemes: follow Modern UI, five fixed palettes, or a custom accent/surface pair with derived readable text and card colors.
