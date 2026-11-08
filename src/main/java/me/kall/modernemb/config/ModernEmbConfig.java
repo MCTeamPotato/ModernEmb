@@ -3,7 +3,6 @@ package me.kall.modernemb.config;
 import me.kall.narutoui.mui.color.MuiColorBand;
 import me.kall.narutoui.mui.color.MuiColorScheme;
 import me.kall.narutoui.mui.color.MuiColorSchemes;
-import me.kall.narutoui.mui.color.MuiShimmerRamps;
 import me.kall.narutoui.mui.color.MuiThemePalette;
 import net.minecraftforge.common.ForgeConfigSpec;
 import org.jetbrains.annotations.NotNull;
@@ -186,18 +185,12 @@ public final class ModernEmbConfig {
      */
     public int @NotNull [] rampFor(@NotNull GlowPalette palette) {
         if (palette == GlowPalette.THEME) {
-            String id = this.themeSchemeId();
-            // Naruto/Auto keep the signature chakra ramp; the other schemes get a rich ramp in
-            // their own color family.
-            if ("NARUTO".equalsIgnoreCase(id) || this.themeAuto()) {
-                return GlowPalette.CHAKRA.ramp(0, 0);
-            }
-            MuiThemePalette theme = this.activeThemePalette();
             if (this.themeCustom()) {
-                // The custom palette's outline is a neutral contrast token, not a deep accent.
-                return MuiShimmerRamps.rich(theme.primary());
+                return ModernEmbColors.customRamp(this.accentColor(), this.surfaceColor());
             }
-            return MuiShimmerRamps.rich(theme.primary(), theme.outline());
+            MuiColorScheme scheme = this.themeScheme();
+            // Auto and unknown ids follow Modern UI, whose ramp is the signature chakra one.
+            return scheme != null ? scheme.shimmerRamp() : MuiColorSchemes.NARUTO.shimmerRamp();
         }
         return palette.ramp(this.glowColorFirst(), this.glowColorSecond());
     }

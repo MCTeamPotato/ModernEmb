@@ -1,5 +1,9 @@
 package me.kall.modernemb.config;
 
+import me.kall.narutoui.mui.color.MuiHudPreset;
+import me.kall.narutoui.mui.color.MuiRampStyle;
+import me.kall.narutoui.mui.color.MuiSchemeGenerator;
+import me.kall.narutoui.mui.color.MuiSurfaceTint;
 import me.kall.narutoui.mui.color.MuiThemePalette;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -7,23 +11,13 @@ import org.jetbrains.annotations.Nullable;
 import java.util.regex.Pattern;
 
 /**
- * Color math shared by the theme presets and the custom palette.
+ * Color token handling for the theme presets and the custom palette.
  * <p>
- * Everything here is plain ARGB integer math so the result is identical on every platform and can
- * be reused by the configuration page, the screen builder and the shimmer profile. Theme colors are
- * forced opaque: a half-transparent surface would make the derived card and text colors read
- * against the wrong backdrop.
+ * The palette itself is not derived here: {@link MuiSchemeGenerator} owns that, so a custom scheme
+ * gets the same contrast floors, the same OKLab interpolation and the same light/dark handling as
+ * the built-in ones. This class only parses and formats the config tokens.
  */
 public final class ModernEmbColors {
-    /** Text color used on light backgrounds. */
-    public static final int DARK_TEXT = 0xFF14161A;
-    /** Text color used on dark backgrounds. */
-    public static final int LIGHT_TEXT = 0xFFF5F6F8;
-    /** Error color used on dark backgrounds. */
-    public static final int DARK_ERROR = 0xFFFF6B6B;
-    /** Error color used on light backgrounds. */
-    public static final int LIGHT_ERROR = 0xFFB3261E;
-
     private static final Pattern COLOR_TOKEN = Pattern.compile("#?(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})");
 
     private ModernEmbColors() {}
@@ -39,74 +33,34 @@ public final class ModernEmbColors {
     }
 
     /**
-     * Linearly blends two colors.
-     *
-     * @param from   start color
-     * @param to     end color
-     * @param amount blend amount, clamped to {@code 0..1}
-     * @return the blended color
-     */
-    public static int mix(int from, int to, double amount) {
-        double a = Math.max(0.0D, Math.min(1.0D, amount));
-        int alpha = (int) Math.round(((from >>> 24) & 0xFF) + (((to >>> 24) & 0xFF) - ((from >>> 24) & 0xFF)) * a);
-        int red = (int) Math.round(((from >> 16) & 0xFF) + (((to >> 16) & 0xFF) - ((from >> 16) & 0xFF)) * a);
-        int green = (int) Math.round(((from >> 8) & 0xFF) + (((to >> 8) & 0xFF) - ((from >> 8) & 0xFF)) * a);
-        int blue = (int) Math.round((from & 0xFF) + ((to & 0xFF) - (from & 0xFF)) * a);
-        return (alpha << 24) | (red << 16) | (green << 8) | blue;
-    }
-
-    /**
-     * Returns the relative luminance of a color, ignoring its alpha channel.
-     *
-     * @param color ARGB color
-     * @return luminance in {@code 0..1}
-     */
-    public static double luminance(int color) {
-        double red = linear((color >> 16) & 0xFF);
-        double green = linear((color >> 8) & 0xFF);
-        double blue = linear(color & 0xFF);
-        return 0.2126D * red + 0.7152D * green + 0.0722D * blue;
-    }
-
-    /**
-     * Picks dark or light content for a filled control.
+     * Builds a complete palette from a player-chosen accent and surface.
      * <p>
-     * The crossover is where the dark and light text contrast ratios meet, around a background
-     * luminance of {@code 0.18}; below that, light text is more readable, above it dark text is.
-     *
-     * @param background the fill color
-     * @return a readable content color
-     */
-    public static int readableOn(int background) {
-        return luminance(background) > 0.18D ? DARK_TEXT : LIGHT_TEXT;
-    }
-
-    /**
-     * Builds a complete palette from a user-chosen accent and surface.
-     * <p>
-     * The remaining tokens are derived so a custom color scheme cannot end up with, for example,
-     * light text on a light surface or a divider that is invisible against the card.
+     * The surface is taken as given and the remaining tokens are derived from it, so a custom
+     * scheme cannot end up with, for example, light text on a light surface or a divider that is
+     * invisible against the card.
      *
      * @param accent  accent color
      * @param surface base surface color
      * @return the derived palette
      */
     public static @NotNull MuiThemePalette customPalette(int accent, int surface) {
-        int primary = opaque(accent);
-        int base = opaque(surface);
-        int onSurface = readableOn(base);
+        return MuiSchemeGenerator.tokens(accent, MuiSurfaceTint.BRAND, opaque(surface));
+    }
 
-        return new MuiThemePalette(
-                primary,
-                readableOn(primary),
-                base,
-                mix(base, onSurface, 0.06D),
-                mix(base, onSurface, 0.12D),
-                onSurface,
-                mix(onSurface, base, 0.38D),
-                mix(base, onSurface, 0.18D),
-                luminance(base) > 0.45D ? LIGHT_ERROR : DARK_ERROR
-        );
+    /**
+     * Builds the shimmer ramp of the custom scheme.
+     * <p>
+     * The ramp follows the same rule as the built-in schemes: a mirrored light-to-deep band in the
+     * accent's own family, interpolated in OKLab.
+     *
+     * @param accent  accent color
+     * @param surface base surface color
+     * @return nine ARGB stops
+     */
+    public static int @NotNull [] customRamp(int accent, int surface) {
+        MuiThemePalette palette = customPalette(accent, surface);
+        return MuiSchemeGenerator.ramp(palette,
+                MuiSchemeGenerator.hud(palette, MuiHudPreset.DERIVED), MuiRampStyle.HUE_SWEEP);
     }
 
     /**
@@ -172,10 +126,5 @@ public final class ModernEmbColors {
      */
     public static @NotNull String toColorToken(int color) {
         return String.format("%08X", opaque(color));
-    }
-
-    private static double linear(int channel) {
-        double value = channel / 255.0D;
-        return value <= 0.04045D ? value / 12.92D : Math.pow((value + 0.055D) / 1.055D, 2.4D);
     }
 }
